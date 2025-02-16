@@ -127,8 +127,7 @@ func (p *WorkerPool[INPUT]) Stop() {
 // Resize dynamically adjusts the number of concurrent workers allowed by the workerpool.
 // It stops the workerpool, waits for all active workers to finish, creates a new slotGrp with the
 // specified size, and restarts the workerpool with the updated conclimiter configuration.
-// Returns an error if the specified size is 0 or if the workerpool has already been closed.
-func (p *WorkerPool[INPUT]) Resize(size uint16) error {
+func (p *WorkerPool[INPUT]) Resize(size uint16) {
 	p.resizeMutex.Lock()
 	defer p.resizeMutex.Unlock()
 
@@ -153,8 +152,6 @@ func (p *WorkerPool[INPUT]) Resize(size uint16) error {
 
 	// Start input processing again with the new slotGrp that has the size specified.
 	p.Start()
-
-	return nil
 }
 
 // Close shuts down the workerpool and cleans up all resources.
@@ -170,11 +167,11 @@ func (p *WorkerPool[INPUT]) Close() {
 		return
 	}
 
-	// Set the state of p to "closed".
-	p.closed.Store(true)
-
 	// Signal running go-routines that they need to stop.
 	p.Stop()
+
+	// Set the state of p to "closed".
+	p.closed.Store(true)
 
 	// Free resources to allow garbage collection of the WorkerPool's fields.
 	close(p.inputBuffer)
