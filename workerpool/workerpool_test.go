@@ -11,7 +11,6 @@ import (
 // TestPool_Start verifies the workerpool starts and handles tasks correctly.
 func TestPool_Start(t *testing.T) {
 	inputChan := make(chan int)
-	errChan := make(chan error, 1)
 	result := make([]int, 0)
 	mutex := &sync.Mutex{}
 	inputWaitGroup := &sync.WaitGroup{}
@@ -24,7 +23,7 @@ func TestPool_Start(t *testing.T) {
 			return nil
 		},
 		inputChan,
-		errChan,
+		func(err error) {},
 		concurrency.NewSlotGroup(3),
 	)
 
@@ -53,7 +52,6 @@ func TestPool_Start(t *testing.T) {
 // TestPool_ConcurrencyLimit ensures the workerpool honors the slot group limit.
 func TestPool_ConcurrencyLimit(t *testing.T) {
 	inputChan := make(chan int)
-	errChan := make(chan error, 1)
 	processedTasks := []int{}
 
 	// Create the workerpool with a conclimiter limit of 2
@@ -64,7 +62,7 @@ func TestPool_ConcurrencyLimit(t *testing.T) {
 			return nil
 		},
 		inputChan,
-		errChan,
+		func(err error) {},
 		concurrency.NewSlotGroup(2),
 	)
 
@@ -89,7 +87,6 @@ func TestPool_ConcurrencyLimit(t *testing.T) {
 // TestPool_Resize tests that the workerpool can dynamically resize its conclimiter limit.
 func TestPool_Resize(t *testing.T) {
 	inputChan := make(chan int)
-	errChan := make(chan error, 1)
 
 	p := NewWorkerPool(
 		func(input int) error {
@@ -97,7 +94,7 @@ func TestPool_Resize(t *testing.T) {
 			return nil
 		},
 		inputChan,
-		errChan,
+		func(err error) {},
 		concurrency.NewSlotGroup(1),
 	)
 
@@ -105,10 +102,7 @@ func TestPool_Resize(t *testing.T) {
 	defer p.Stop()
 
 	// Resize the workerpool
-	err := p.Resize(3)
-	if err != nil {
-		t.Fatalf("unexpected error resizing workerpool: %v", err)
-	}
+	p.Resize(3)
 
 	// Validate that resizing works by sending a large batch of inputs
 	go func() {
@@ -120,13 +114,11 @@ func TestPool_Resize(t *testing.T) {
 	// Allow time for all tasks to process
 	time.Sleep(500 * time.Millisecond)
 
-	// If conclimiter of 3 is set, the processing time should reduce
 }
 
 // TestPool_Close verifies that the workerpool closes gracefully and no resources are leaked.
 func TestPool_Close(t *testing.T) {
 	inputChan := make(chan int)
-	errChan := make(chan error, 1)
 
 	p := NewWorkerPool(
 		func(input int) error {
@@ -134,7 +126,7 @@ func TestPool_Close(t *testing.T) {
 			return nil
 		},
 		inputChan,
-		errChan,
+		func(err error) {},
 		concurrency.NewSlotGroup(2),
 	)
 
@@ -163,7 +155,7 @@ func TestPool_Close(t *testing.T) {
 // TestPool_ErrorHandling ensures task errors are sent to the error channel.
 func TestPool_ErrorHandling(t *testing.T) {
 	inputChan := make(chan int)
-	errChan := make(chan error, 1)
+	var err error
 
 	p := NewWorkerPool(
 		func(input int) error {
@@ -173,7 +165,9 @@ func TestPool_ErrorHandling(t *testing.T) {
 			return nil
 		},
 		inputChan,
-		errChan,
+		func(e error) {
+			err = e
+		},
 		concurrency.NewSlotGroup(1),
 	)
 
@@ -188,13 +182,11 @@ func TestPool_ErrorHandling(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	p.Stop()
 
-	select {
-	case err := <-errChan:
-		if err.Error() != "task failed" {
-			t.Fatalf("expected error 'task failed', got %v", err)
-		}
-	default:
-		t.Fatal("expected error but got none")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if err.Error() != "task failed" {
+		t.Fatalf("expected error 'task failed', got %v", err)
 	}
 
 }
@@ -202,12 +194,11 @@ func TestPool_ErrorHandling(t *testing.T) {
 // TestPool_StopWithoutStart ensures stopping an unstarted workerpool does not cause issues.
 func TestPool_StopWithoutStart(t *testing.T) {
 	inputChan := make(chan int)
-	errChan := make(chan error, 1)
 
 	p := NewWorkerPool(
 		func(input int) error { return nil },
 		inputChan,
-		errChan,
+		func(e error) {},
 		concurrency.NewSlotGroup(2),
 	)
 
@@ -220,19 +211,22 @@ func TestPool_StopWithoutStart(t *testing.T) {
 // TestPool_ResizeClosedPool ensures resizing a closed workerpool returns an error.
 func TestPool_ResizeClosedPool(t *testing.T) {
 	inputChan := make(chan int)
-	errChan := make(chan error, 1)
 
 	p := NewWorkerPool(
 		func(input int) error { return nil },
 		inputChan,
-		errChan,
+		func(e error) {},
 		concurrency.NewSlotGroup(2),
 	)
 
 	p.Close()
 
-	err := p.Resize(4)
-	if err == nil {
-		t.Fatal("expected error resizing a closed workerpool but got none")
-	}
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected error")
+		}
+	}()
+	p.Resize(4)
+
 }
