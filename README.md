@@ -13,7 +13,7 @@ A simple, generic worker pool implementation for concurrent task processing in G
 ## Installation
 
 ```bash
-go get github.com/yourusername/ezworker
+go get github.com/pgvanniekerk/ezworker
 ```
 
 ## Quick Start
@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yourusername/ezworker/pkg/ezworker"
+	"github.com/pgvanniekerk/ezworker/pkg/ezworker"
 )
 
 func main() {
@@ -42,8 +42,9 @@ func main() {
 	}
 
 	// Define an error handler
-	errHandler := func(err error) {
+	errHandler := func(err error) error {
 		fmt.Println("Error:", err)
+		return err
 	}
 
 	// Create a worker pool with 5 concurrent workers
@@ -60,14 +61,13 @@ func main() {
 	// Wait a bit to allow processing
 	time.Sleep(1 * time.Second)
 
-	// Cancel the context to stop the worker pool
-	cancel()
+	// The worker pool will be stopped when the context is canceled via the defer cancel()
 }
 ```
 
 ## Documentation
 
-For detailed documentation and examples, see the [GoDoc](https://pkg.go.dev/github.com/yourusername/ezworker/pkg/ezworker).
+For detailed documentation and examples, see the [GoDoc](https://pkg.go.dev/github.com/pgvanniekerk/ezworker/pkg/ezworker).
 
 ## License
 
