@@ -369,10 +369,6 @@ func TestRunnableCompatibility(t *testing.T) {
 	_ = wire.Runnables(worker)
 }
 
-// MockBuilder is a function type that represents a builder function in the ezapp framework.
-// It takes a Runnable and returns it, simulating how the ezapp framework might use it.
-type MockBuilder func(interface{}) interface{}
-
 // TestRunnableAsArgument tests that an EzWorker instance can be passed to a function
 // that expects a Runnable. This is a compile-time test.
 func TestRunnableAsArgument(t *testing.T) {
